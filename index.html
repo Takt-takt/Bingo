@@ -21,6 +21,10 @@
     /* 新設：ぼかしと影の調整用カスタムプロパティ */
     --bg-blur: 0px;
     --shadow-strength: 30px;
+    --text-shadow-x: 2px;
+    --text-shadow-y: 2px;
+    --text-shadow-blur: 4px;
+    --text-shadow-color: rgba(0, 0, 0, 0.65);
   }
 
   body {
@@ -124,12 +128,17 @@
   h1 {
     font-size: 22pt; font-weight: 700;
     letter-spacing: 6px; color: var(--title-color);
-    text-shadow: 0 0 var(--shadow-strength) var(--theme-bg-glow);
+    text-shadow: var(--text-shadow-x) var(--text-shadow-y) var(--text-shadow-blur) var(--text-shadow-color);
     margin-bottom: 6px; white-space: pre-line;
     line-height: 1.2;
     transition: text-shadow 0.1s;
   }
-  .subtitle { font-size: 28pt; font-weight: 700; color: var(--subtitle-color); letter-spacing: 4px; white-space: pre-line; line-height: 1.2; }
+  .subtitle {
+    font-size: 28pt; font-weight: 700; color: var(--subtitle-color);
+    letter-spacing: 4px; white-space: pre-line; line-height: 1.2;
+    text-shadow: var(--text-shadow-x) var(--text-shadow-y) var(--text-shadow-blur) var(--text-shadow-color);
+    transition: text-shadow 0.1s;
+  }
 
   /* Ball area */
   /* 修正：box-shadowのぼかし幅を変数化 */
@@ -168,6 +177,7 @@
     background: var(--theme-gradient); color: var(--spin-btn-text-color); 
     box-shadow: 0 4px var(--shadow-strength) var(--theme-shadow);
     transition: box-shadow 0.1s;
+    letter-spacing: 0;
   }
   #btn-spin:hover { box-shadow: 0 6px calc(var(--shadow-strength) + 8px) var(--theme-shadow); }
   #btn-spin:disabled { background: #3a3060; color: #6a5099; box-shadow: none; cursor: default; transform: none; }
@@ -237,10 +247,32 @@
       <span class="ctrl-val" id="val-blur">0px</span>
     </div>
 
-    <label>文字やボタンの影（発光）</label>
+    <label>ボタン・球体の影（発光）</label>
     <div class="ctrl-row">
       <input type="range" id="slider-shadow" min="0" max="40" value="30" step="1">
       <span class="ctrl-val" id="val-shadow">30px</span>
+    </div>
+
+    <label>タイトル／サブタイトルの文字シャドウ</label>
+    <div class="ctrl-row">
+      <span style="font-size:11px; color:#aaa; min-width:54px;">影色</span>
+      <input type="color" id="picker-text-shadow-color" value="#000000">
+      <span style="font-size:11px; color:#aaa;">文字の影色</span>
+    </div>
+    <div class="ctrl-row">
+      <span style="font-size:11px; color:#aaa; min-width:54px;">横位置</span>
+      <input type="range" id="slider-text-shadow-x" min="-10" max="10" value="2" step="1">
+      <span class="ctrl-val" id="val-text-shadow-x">2px</span>
+    </div>
+    <div class="ctrl-row">
+      <span style="font-size:11px; color:#aaa; min-width:54px;">縦位置</span>
+      <input type="range" id="slider-text-shadow-y" min="-10" max="10" value="2" step="1">
+      <span class="ctrl-val" id="val-text-shadow-y">2px</span>
+    </div>
+    <div class="ctrl-row">
+      <span style="font-size:11px; color:#aaa; min-width:54px;">ぼかし</span>
+      <input type="range" id="slider-text-shadow-blur" min="0" max="20" value="4" step="1">
+      <span class="ctrl-val" id="val-text-shadow-blur">4px</span>
     </div>
 
     <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
@@ -257,7 +289,7 @@
     <textarea id="input-title" placeholder="Anfini FY26&#10;Kick-off Meeting" rows="2"></textarea>
     <div class="ctrl-row">
       <input type="range" id="slider-title" min="10" max="80" value="22" step="1">
-      <span class="ctrl-val" id="val-title">25pt</span>
+      <span class="ctrl-val" id="val-title">22pt</span>
       <input type="color" id="picker-title-color" value="#ffffff" title="文字色">
     </div>
     <div class="ctrl-row">
@@ -277,7 +309,7 @@
     <textarea id="input-subtitle" placeholder="BINGO TOURNAMENT" rows="2"></textarea>
     <div class="ctrl-row">
       <input type="range" id="slider-sub" min="10" max="80" value="28" step="1">
-      <span class="ctrl-val" id="val-sub">30pt</span>
+      <span class="ctrl-val" id="val-sub">28pt</span>
       <input type="color" id="picker-sub-color" value="#000000" title="文字色">
     </div>
     <div class="ctrl-row">
@@ -369,6 +401,13 @@ const sliderBlur = document.getElementById('slider-blur');
 const valBlur = document.getElementById('val-blur');
 const sliderShadow = document.getElementById('slider-shadow');
 const valShadow = document.getElementById('val-shadow');
+const pickerTextShadowColor = document.getElementById('picker-text-shadow-color');
+const sliderTextShadowX = document.getElementById('slider-text-shadow-x');
+const valTextShadowX = document.getElementById('val-text-shadow-x');
+const sliderTextShadowY = document.getElementById('slider-text-shadow-y');
+const valTextShadowY = document.getElementById('val-text-shadow-y');
+const sliderTextShadowBlur = document.getElementById('slider-text-shadow-blur');
+const valTextShadowBlur = document.getElementById('val-text-shadow-blur');
 
 const settingsModal = document.getElementById('settings-modal');
 const btnSettingsToggle = document.getElementById('btn-settings-toggle');
@@ -379,6 +418,27 @@ btnCloseModal.addEventListener('click', hideModal);
 settingsModal.addEventListener('click', (e) => { if(e.target === settingsModal) hideModal(); });
 
 function hideModal() { settingsModal.style.display = 'none'; }
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.substring(1,3), 16);
+  const g = parseInt(hex.substring(3,5), 16);
+  const b = parseInt(hex.substring(5,7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function updateTextShadow() {
+  const x = sliderTextShadowX.value + 'px';
+  const y = sliderTextShadowY.value + 'px';
+  const blur = sliderTextShadowBlur.value + 'px';
+  const color = hexToRgba(pickerTextShadowColor.value, 0.65);
+  document.documentElement.style.setProperty('--text-shadow-x', x);
+  document.documentElement.style.setProperty('--text-shadow-y', y);
+  document.documentElement.style.setProperty('--text-shadow-blur', blur);
+  document.documentElement.style.setProperty('--text-shadow-color', color);
+  valTextShadowX.textContent = x;
+  valTextShadowY.textContent = y;
+  valTextShadowBlur.textContent = blur;
+}
 
 function updateThemeColors(hexColor) {
   document.documentElement.style.setProperty('--theme-color', hexColor);
@@ -453,6 +513,10 @@ sliderShadow.addEventListener('input', () => {
   valShadow.textContent = sliderShadow.value + 'px';
   document.documentElement.style.setProperty('--shadow-strength', sliderShadow.value + 'px');
 });
+pickerTextShadowColor.addEventListener('input', updateTextShadow);
+sliderTextShadowX.addEventListener('input', updateTextShadow);
+sliderTextShadowY.addEventListener('input', updateTextShadow);
+sliderTextShadowBlur.addEventListener('input', updateTextShadow);
 
 fontTitle.addEventListener('change', () => { titleText.style.fontFamily = fontTitle.value; });
 fontSub.addEventListener('change', () => { subtitleText.style.fontFamily = fontSub.value; });
@@ -473,8 +537,14 @@ function showEdit() {
   // スライダー初期位置の同期
   const blurVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--bg-blur')) || 0;
   const shadowVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--shadow-strength')) || 30;
+  const textShadowXVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--text-shadow-x')) || 2;
+  const textShadowYVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--text-shadow-y')) || 2;
+  const textShadowBlurVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--text-shadow-blur')) || 4;
   sliderBlur.value = blurVal; valBlur.textContent = blurVal + 'px';
   sliderShadow.value = shadowVal; valShadow.textContent = shadowVal + 'px';
+  sliderTextShadowX.value = textShadowXVal; valTextShadowX.textContent = textShadowXVal + 'px';
+  sliderTextShadowY.value = textShadowYVal; valTextShadowY.textContent = textShadowYVal + 'px';
+  sliderTextShadowBlur.value = textShadowBlurVal; valTextShadowBlur.textContent = textShadowBlurVal + 'px';
 
   fontTitle.value = titleText.style.fontFamily || fontTitle.options[0].value;
   fontSub.value = subtitleText.style.fontFamily || fontSub.options[0].value;
@@ -500,6 +570,7 @@ function applyEdit() {
   document.documentElement.style.setProperty('--subtitle-color', pickerSubColor.value);
   document.documentElement.style.setProperty('--bg-blur', sliderBlur.value + 'px');
   document.documentElement.style.setProperty('--shadow-strength', sliderShadow.value + 'px');
+  updateTextShadow();
 
   hideModal();
 }
