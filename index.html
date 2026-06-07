@@ -25,33 +25,48 @@
     --text-shadow-y: 2px;
     --text-shadow-blur: 4px;
     --text-shadow-color: rgba(0, 0, 0, 0.65);
+    --page-bg-image: url('background.png');
+    --roulette-top-offset: max(20px, calc((100vh - 620px) / 2));
   }
 
   body {
     font-family: 'Segoe UI', 'Yu Gothic', sans-serif;
-    background: #222225 url('background.png') center / cover no-repeat;
+    background: #222225;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 20px;
+    justify-content: flex-start;
+    padding: var(--roulette-top-offset) 20px 20px;
     color: #fff;
     position: relative;
     overflow-x: hidden;
+    isolation: isolate;
   }
 
-  /* 修正：bodyの背景画像を直接ぼかすと全体が歪むため、背景専用の擬似要素を作成 */
-  body::before {
+  /* 背景専用レイヤー。コンテンツが下に伸びても、上側の配置は固定する */
+  body::before,
+  body::after {
     content: "";
-    position: fixed; inset: 0;
-    background-image: inherit;
+    position: fixed;
+    left: 0; right: 0;
+    height: 100vh;
+    background-image: var(--page-bg-image);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    filter: blur(var(--bg-blur)); /* 動的なぼかしを適用 */
-    transform: scale(1.05); /* ぼかした際に端が白くなるのを防ぐトリミング */
+    filter: blur(var(--bg-blur));
+    transform: scale(1.05);
     z-index: -1;
+    pointer-events: none;
+  }
+  body::before { top: 0; }
+
+  /* 画面下にスクロール領域が必要になった時用：同じ背景を上下反転して続ける */
+  body::after {
+    position: absolute;
+    top: 100vh;
+    transform: scale(1.05) scaleY(-1);
   }
 
   #btn-settings-toggle {
@@ -204,7 +219,7 @@
     max-height: 140px; overflow-y: auto; padding: 12px; border-radius: 12px;
     background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05);
     /* 抽選済み番号が1つ表示された時の高さを、初期状態から確保する */
-    min-height: calc(48px + 24px + 2px); width: 100%; max-width: 82vw;
+    min-height: calc(48px + 24px + 2px); height: 140px; width: 100%; max-width: 82vw;
   }
   
   .hist-ball {
@@ -587,8 +602,7 @@ function resetSettingsToDefault() {
   applySettingsValues(DEFAULT_SETTINGS);
 
   // アップロード背景を解除し、CSSの background.png に戻す
-  document.body.style.backgroundImage = '';
-  document.body.style.backgroundSize = '';
+  setPageBackgroundImage("url('background.png')");
 
   // 現在のボールが「?」のときはテーマ色に合わせて戻す
   if (ballNumber.textContent === '?') {
@@ -607,8 +621,12 @@ updateSpinDurationDisplay();
 // ※ localStorage は「同じ端末・同じブラウザ・同じURL」でのみ維持されます。
 const STORAGE_KEY = 'anfini-bingo-roulette-state-v1';
 
+function setPageBackgroundImage(bgValue) {
+  document.documentElement.style.setProperty('--page-bg-image', bgValue || "url('background.png')");
+}
+
 function getInlineBackgroundDataUrl() {
-  const bg = document.body.style.backgroundImage || '';
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--page-bg-image').trim();
   // 背景画像をアップロードした場合のみ data URL として保存する
   if (bg.startsWith('url("data:') || bg.startsWith("url('data:") || bg.startsWith('url(data:')) {
     return bg;
@@ -731,8 +749,9 @@ function loadState() {
 
     // 背景画像
     if (state.backgroundImage) {
-      document.body.style.backgroundImage = state.backgroundImage;
-      document.body.style.backgroundSize = 'cover';
+      setPageBackgroundImage(state.backgroundImage);
+    } else {
+      setPageBackgroundImage("url('background.png')");
     }
 
     allDone.style.display = state.allDoneVisible || pool.length === 0 ? 'block' : 'none';
@@ -836,8 +855,7 @@ btnResetSettings.addEventListener('click', resetSettingsToDefault);
 function applyBg(file) {
   const reader = new FileReader();
   reader.onload = e => {
-    document.body.style.backgroundImage = `url(${e.target.result})`;
-    document.body.style.backgroundSize = 'cover';
+    setPageBackgroundImage(`url(${e.target.result})`);
     saveState();
   };
   reader.readAsDataURL(file);
