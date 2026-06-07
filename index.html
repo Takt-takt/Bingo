@@ -26,6 +26,7 @@
     --text-shadow-blur: 4px;
     --text-shadow-color: rgba(0, 0, 0, 0.65);
     --page-bg-image: url('background.png');
+    --browser-zoom: 1;
     --roulette-top-offset: max(20px, calc((100vh - 620px) / 2));
   }
 
@@ -52,8 +53,9 @@
     left: 0; right: 0;
     height: 100vh;
     background-image: var(--page-bg-image);
-    background-size: cover;
-    background-position: center;
+    /* Chromeのページズーム時に、文字/UIだけでなく背景も同じ倍率で拡大縮小させる */
+    background-size: max(calc(100vw * var(--browser-zoom)), calc(177.7778vh * var(--browser-zoom))) auto;
+    background-position: center top;
     background-repeat: no-repeat;
     filter: blur(var(--bg-blur));
     z-index: -1;
@@ -1007,6 +1009,41 @@ window.addEventListener('resize', () => {
   checkWrapAndAlign();
   adjustBallFontSize(ballNumber.textContent || '?');
 });
+
+
+// Chromeのページ拡大縮小に背景画像も追従させる
+// 通常の background-size: cover だと、Chromeズーム時にUIだけが大きく見え、背景は画面基準で据え置きに見えるため、
+// ズーム倍率をCSS変数に反映して背景レイヤーも同じ倍率で拡大縮小する。
+const INITIAL_DPR = window.devicePixelRatio || 1;
+
+function clampZoom(v) {
+  if (!Number.isFinite(v) || v <= 0) return 1;
+  return Math.min(3, Math.max(0.4, v));
+}
+
+function updateBrowserZoomForBackground() {
+  const dprRatio = (window.devicePixelRatio || INITIAL_DPR) / INITIAL_DPR;
+
+  // Chrome desktopでは、ページズーム時に innerWidth が変わるため outer/inner から倍率を推定しやすい。
+  // 一方で環境差もあるため、極端に外れた場合はDPR比を使う。
+  const outerRatio = window.outerWidth && window.innerWidth
+    ? window.outerWidth / window.innerWidth
+    : 1;
+
+  let zoom = outerRatio;
+  if (zoom < 0.5 || zoom > 3 || Math.abs(zoom - 1) < 0.03) {
+    zoom = dprRatio;
+  }
+
+  document.documentElement.style.setProperty('--browser-zoom', String(clampZoom(zoom)));
+}
+
+updateBrowserZoomForBackground();
+window.addEventListener('resize', updateBrowserZoomForBackground);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateBrowserZoomForBackground);
+}
+
 </script>
 </body>
 </html>
