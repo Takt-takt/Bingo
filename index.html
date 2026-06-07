@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎱 BINGO ルーレット</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    --theme-color: #d1d1d1;
+    --theme-color-dark: #686868;
+    --theme-color-light: #f5f5f5;
+    --theme-gradient: linear-gradient(135deg, #d1d1d1, #ffffff);
+    --theme-shadow: rgba(209, 209, 209, 0.5);
+    --theme-bg-glow: rgba(209, 209, 209, 0.6);
+    --title-color: #ffffff;
+    --subtitle-color: #000000;
+    --spin-btn-text-color: #1a1040;
+    
+    /* 新設：ぼかしと影の調整用カスタムプロパティ */
+    --bg-blur: 0px;
+    --shadow-strength: 30px;
+  }
+
+  body {
+    font-family: 'Segoe UI', 'Yu Gothic', sans-serif;
+    background: #222225 url('background.png') center / cover no-repeat;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #fff;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* 修正：bodyの背景画像を直接ぼかすと全体が歪むため、背景専用の擬似要素を作成 */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: inherit;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(var(--bg-blur)); /* 動的なぼかしを適用 */
+    transform: scale(1.05); /* ぼかした際に端が白くなるのを防ぐトリミング */
+    z-index: -1;
+  }
+
+  #btn-settings-toggle {
+    position: fixed; top: 16px; left: 16px;
+    background: transparent; border: none;
+    color: #aaa; font-size: 26px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: color 0.2s, transform 0.2s; z-index: 90;
+    outline: none;
+  }
+  #btn-settings-toggle:hover { color: var(--theme-color); transform: rotate(45deg); }
+
+  /* 設定モーダル */
+  #settings-modal {
+    position: fixed; inset: 0;
+    background: rgba(15,15,18,0.85);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px;
+  }
+
+  #title-edit {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; background: rgba(30,30,35,0.96); border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    border-radius: 16px; padding: 24px; width: 400px;
+    max-height: 90vh; overflow-y: auto;
+    animation: modalPop 0.25s ease-out;
+  }
+  @keyframes modalPop { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  #title-edit label { font-size: 12px; color: var(--subtitle-color); letter-spacing: 1px; align-self: flex-start; margin-top: 4px; font-weight: bold; }
+  #title-edit textarea {
+    width: 100%; padding: 9px 14px; font-size: 14px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: #fff; outline: none; font-family: inherit;
+    resize: vertical; min-height: 48px; line-height: 1.4;
+  }
+  #title-edit textarea:focus { border-color: var(--theme-color); background: rgba(255,255,255,0.1); }
+  
+  .ctrl-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .ctrl-row input[type="range"] { flex: 1; }
+  .ctrl-val { font-size: 13px; color: var(--subtitle-color); min-width: 42px; text-align: right; }
+  .ctrl-row select {
+    flex: 1; padding: 7px 10px; font-size: 13px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: #fff; outline: none; cursor: pointer;
+  }
+  .ctrl-row select option { background: #222225; color: #fff; }
+  .ctrl-row input[type="color"] { border: none; width: 40px; height: 30px; border-radius: 4px; cursor: pointer; background: transparent; }
+
+  #drop-zone {
+    width: 100%; height: 90px;
+    border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; cursor: pointer; transition: background 0.2s, border-color 0.2s;
+    color: #aaa; font-size: 12px; margin-top: 4px;
+  }
+  #drop-zone:hover, #drop-zone.drag { background: rgba(255,255,255,0.05); border-color: var(--theme-color); color: #fff; }
+  #drop-zone .icon { font-size: 20px; }
+  #file-input { display: none; }
+
+  #btn-apply {
+    margin-top: 14px; padding: 10px 48px; font-size: 14px; font-weight: 700;
+    border-radius: 99px; cursor: pointer; border: none;
+    background: var(--theme-color); color: var(--spin-btn-text-color);
+    transition: background 0.15s, transform 0.1s; width: 100%;
+  }
+  #btn-apply:hover { filter: brightness(1.1); }
+
+  /* Title area */
+  #title-area { text-align: center; margin-bottom: 8px; white-space: pre-line; }
+  
+  /* 修正：text-shadowのぼかし幅を変数化 */
+  h1 {
+    font-size: 22pt; font-weight: 700;
+    letter-spacing: 6px; color: var(--title-color);
+    text-shadow: 0 0 var(--shadow-strength) var(--theme-bg-glow);
+    margin-bottom: 6px; white-space: pre-line;
+    line-height: 1.2;
+    transition: text-shadow 0.1s;
+  }
+  .subtitle { font-size: 28pt; font-weight: 700; color: var(--subtitle-color); letter-spacing: 4px; white-space: pre-line; line-height: 1.2; }
+
+  /* Ball area */
+  /* 修正：box-shadowのぼかし幅を変数化 */
+  .ball-wrap {
+    width: 210px; height: 210px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, var(--theme-color), var(--theme-color-dark));
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 28px;
+    box-shadow: 0 0 var(--shadow-strength) var(--theme-shadow), inset 0 0 20px rgba(255,255,255,0.15);
+    transition: box-shadow 0.1s;
+  }
+  .ball-wrap.spinning { animation: spin 0.15s ease-in-out infinite alternate; }
+  @keyframes spin { from { transform: scale(0.97) rotate(-1deg); } to { transform: scale(1.03) rotate(1deg); } }
+  
+  .ball-inner {
+    width: 170px; height: 170px; border-radius: 50%;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    border: 4px solid rgba(255,255,255,0.3); padding: 10px; overflow: hidden;
+  }
+  .ball-number {
+    font-size: 96px; font-weight: 700; line-height: 1.0; color: var(--theme-color-dark);
+    text-align: center; white-space: pre-line; word-break: break-word;
+    width: 100%; max-width: 150px;
+    display: flex; align-items: center; justify-content: center; margin-top: -6px; 
+  }
+
+  /* Controls area */
+  .controls { display: flex; gap: 12px; margin-bottom: 28px; align-items: stretch; }
+  button { cursor: pointer; border: none; letter-spacing: 1px; transition: transform 0.1s, box-shadow 0.1s; }
+  button:active { transform: scale(0.96); }
+  
+  /* 修正：box-shadowのぼかし幅を変数化 */
+  #btn-spin {
+    padding: 16px 48px; font-size: 18px; font-weight: 700; border-radius: 50px;
+    background: var(--theme-gradient); color: var(--spin-btn-text-color); 
+    box-shadow: 0 4px var(--shadow-strength) var(--theme-shadow);
+    transition: box-shadow 0.1s;
+  }
+  #btn-spin:hover { box-shadow: 0 6px calc(var(--shadow-strength) + 8px) var(--theme-shadow); }
+  #btn-spin:disabled { background: #3a3060; color: #6a5099; box-shadow: none; cursor: default; transform: none; }
+  
+  #btn-reset {
+    padding: 16px 24px; font-size: 13px; font-weight: 600; border-radius: 40px;
+    background: rgba(255,255,255,0.06); color: var(--theme-color-light);
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #btn-reset:hover { background: rgba(255,255,255,0.12); }
+
+  .history-label { font-size: 12px; color: var(--theme-color-light); letter-spacing: 2px; margin-bottom: 10px; }
+  
+  .history {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    max-height: 140px; overflow-y: auto; padding: 12px; border-radius: 12px;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05);
+    /* 抽選済み番号が1つ表示された時の高さを、初期状態から確保する */
+    min-height: calc(48px + 24px + 2px); width: 100%; max-width: 82vw;
+  }
+  
+  .hist-ball {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; border: 2px solid;
+    flex-shrink: 0; animation: pop 0.3s ease-out; background: #dcdce0; 
+  }
+  @keyframes pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .all-done {
+    display: none; background: rgba(74,222,128,0.15); border: 1px solid #22c55e;
+    color: #4ade80; padding: 12px 24px; border-radius: 10px;
+    font-weight: 600; font-size: 16px; margin-top: 16px; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<button id="btn-settings-toggle" title="設定画面を開く">⚙</button>
+<input type="file" id="file-input" accept="image/*">
+
+<div id="title-area">
+  <h1 id="title-text">Anfini FY26<br>Kick-off Meeting</h1>
+  <p class="subtitle" id="subtitle-text">BINGO TOURNAMENT</p>
+</div>
+
+<div id="settings-modal">
+  <div id="title-edit">
+    <div style="display:flex; width:100%; justify-content:space-between; align-items:center;">
+      <h3 style="font-size:16px; color:#fff; letter-spacing:1px;">⚙ ルーレット環境設定</h3>
+      <span id="btn-close-modal" style="cursor:pointer; color:#aaa; font-size:20px; font-weight:bold; padding:0 5px;">&times;</span>
+    </div>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+
+    <label>全体のテーマカラー</label>
+    <div class="ctrl-row">
+      <input type="color" id="picker-theme" value="#d1d1d1">
+      <span style="font-size:11px; color:#aaa;">メインボタンや球体に適用</span>
+    </div>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+    
+    <label>背景のぼかし強度</label>
+    <div class="ctrl-row">
+      <input type="range" id="slider-blur" min="0" max="20" value="0" step="1">
+      <span class="ctrl-val" id="val-blur">0px</span>
+    </div>
+
+    <label>文字やボタンの影（発光）</label>
+    <div class="ctrl-row">
+      <input type="range" id="slider-shadow" min="0" max="40" value="30" step="1">
+      <span class="ctrl-val" id="val-shadow">30px</span>
+    </div>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+
+    <label>背景画像の設定</label>
+    <div id="drop-zone">
+      <div class="icon">🖼</div>
+      <div>画像をドロップまたはクリックで選択</div>
+    </div>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+
+    <label>タイトル</label>
+    <textarea id="input-title" placeholder="Anfini FY26&#10;Kick-off Meeting" rows="2"></textarea>
+    <div class="ctrl-row">
+      <input type="range" id="slider-title" min="10" max="80" value="22" step="1">
+      <span class="ctrl-val" id="val-title">25pt</span>
+      <input type="color" id="picker-title-color" value="#ffffff" title="文字色">
+    </div>
+    <div class="ctrl-row">
+      <select id="font-title">
+        <option value="'Segoe UI','Yu Gothic',sans-serif">デフォルト</option>
+        <option value="'Yu Mincho','MS Mincho',serif">游明朝</option>
+        <option value="'MS Gothic','Yu Gothic',monospace">ゴシック体</option>
+        <option value="Impact,sans-serif">Impact</option>
+        <option value="Georgia,serif">Georgia</option>
+        <option value="'Arial Black',sans-serif">Arial Black</option>
+      </select>
+    </div>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+
+    <label>サブタイトル</label>
+    <textarea id="input-subtitle" placeholder="BINGO TOURNAMENT" rows="2"></textarea>
+    <div class="ctrl-row">
+      <input type="range" id="slider-sub" min="10" max="80" value="28" step="1">
+      <span class="ctrl-val" id="val-sub">30pt</span>
+      <input type="color" id="picker-sub-color" value="#000000" title="文字色">
+    </div>
+    <div class="ctrl-row">
+      <select id="font-sub">
+        <option value="'Segoe UI','Yu Gothic',sans-serif">デフォルト</option>
+        <option value="'Yu Mincho','MS Mincho',serif">游明朝</option>
+        <option value="'MS Gothic','Yu Gothic',monospace">ゴシック体</option>
+        <option value="Impact,sans-serif">Impact</option>
+      </select>
+    </div>
+
+    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;">
+
+    <label>ルーレット数字・文字のフォント</label>
+    <div class="ctrl-row">
+      <select id="font-ball">
+        <option value="'Segoe UI','Yu Gothic',sans-serif">デフォルト</option>
+        <option value="'Yu Mincho','MS Mincho',serif">游明朝</option>
+        <option value="'MS Gothic','Yu Gothic',monospace">ゴシック体</option>
+        <option value="Impact,sans-serif">Impact</option>
+        <option value="Georgia,serif">Georgia</option>
+        <option value="'Arial Black',sans-serif">Arial Black</option>
+      </select>
+    </div>
+
+    <button id="btn-apply">✓ 設定を保存</button>
+  </div>
+</div>
+
+<div class="ball-wrap" id="ballWrap">
+  <div class="ball-inner" id="ballInner">
+    <div class="ball-number" id="ballNumber">?</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="btn-spin">🎲 START</button>
+  <button id="btn-reset">🔄 RESET</button>
+</div>
+
+<div class="history-label">▼ 抽選済み番号</div>
+<div class="history" id="history"></div>
+<div class="all-done" id="allDone">🎉 全75番号が抽選されました！</div>
+
+<script>
+const COLORS = [
+  { bg:'#1e3a5f', tc:'#60a5fa', bc:'#3b82f6' },
+  { bg:'#14422a', tc:'#4ade80', bc:'#22c55e' },
+  { bg:'#4a2c00', tc:'#fbbf24', bc:'#f59e0b' },
+  { bg:'#4a1010', tc:'#f87171', bc:'#ef4444' },
+  { bg:'#3a1060', tc:'#c084fc', bc:'#a855f7' },
+];
+function getColor(n) { return COLORS[Math.floor((n-1)/15)]; }
+
+let pool = Array.from({length:75},(_,i)=>i+1);
+let spinning = false;
+
+const audioDrum = new Audio('drum.mp3');
+const audioCymbal = new Audio('cymbals.mp3');
+audioDrum.loop = true;
+
+const ballWrap    = document.getElementById('ballWrap');
+const ballNumber  = document.getElementById('ballNumber');
+const btnSpin     = document.getElementById('btn-spin');
+const btnReset    = document.getElementById('btn-reset');
+const historyEl   = document.getElementById('history');
+const allDone     = document.getElementById('allDone');
+const dropZone    = document.getElementById('drop-zone');
+const fileInput   = document.getElementById('file-input');
+const titleText   = document.getElementById('title-text');
+const subtitleText= document.getElementById('subtitle-text');
+const inputTitle  = document.getElementById('input-title');
+const inputSub    = document.getElementById('input-subtitle');
+const btnApply    = document.getElementById('btn-apply');
+const sliderTitle = document.getElementById('slider-title');
+const sliderSub   = document.getElementById('slider-sub');
+const valTitle    = document.getElementById('val-title');
+const valSub      = document.getElementById('val-sub');
+const fontTitle   = document.getElementById('font-title');
+const fontSub     = document.getElementById('font-sub');
+const fontBall    = document.getElementById('font-ball');
+
+const pickerTheme = document.getElementById('picker-theme');
+const pickerTitleColor = document.getElementById('picker-title-color');
+const pickerSubColor = document.getElementById('picker-sub-color');
+
+// 新規エフェクト用要素
+const sliderBlur = document.getElementById('slider-blur');
+const valBlur = document.getElementById('val-blur');
+const sliderShadow = document.getElementById('slider-shadow');
+const valShadow = document.getElementById('val-shadow');
+
+const settingsModal = document.getElementById('settings-modal');
+const btnSettingsToggle = document.getElementById('btn-settings-toggle');
+const btnCloseModal = document.getElementById('btn-close-modal');
+
+btnSettingsToggle.addEventListener('click', showEdit);
+btnCloseModal.addEventListener('click', hideModal);
+settingsModal.addEventListener('click', (e) => { if(e.target === settingsModal) hideModal(); });
+
+function hideModal() { settingsModal.style.display = 'none'; }
+
+function updateThemeColors(hexColor) {
+  document.documentElement.style.setProperty('--theme-color', hexColor);
+  document.documentElement.style.setProperty('--theme-gradient', `linear-gradient(135deg, ${hexColor}, ${adjustColorBrightness(hexColor, 30)})`);
+  document.documentElement.style.setProperty('--theme-shadow', hexToRgba(hexColor, 0.5));
+  document.documentElement.style.setProperty('--theme-bg-glow', hexToRgba(hexColor, 0.6));
+  
+  document.documentElement.style.setProperty('--theme-color-dark', adjustColorBrightness(hexColor, -50));
+  document.documentElement.style.setProperty('--theme-color-light', adjustColorBrightness(hexColor, 40));
+
+  const r = parseInt(hexColor.substring(1,3), 16);
+  const g = parseInt(hexColor.substring(3,5), 16);
+  const b = parseInt(hexColor.substring(5,7), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  if (brightness >= 140) {
+    document.documentElement.style.setProperty('--spin-btn-text-color', '#1a1040');
+  } else {
+    document.documentElement.style.setProperty('--spin-btn-text-color', '#ffffff');
+  }
+}
+
+function adjustColorBrightness(hex, percent) {
+  let R = parseInt(hex.substring(1,3),16);
+  let G = parseInt(hex.substring(3,5),16);
+  let B = parseInt(hex.substring(5,7),16);
+  
+  R = parseInt(R * (100 + percent) / 100);
+  G = parseInt(G * (100 + percent) / 100);
+  B = parseInt(B * (100 + percent) / 100);
+  
+  R = (R<255)?R:255; G = (G<255)?G:255; B = (B<255)?B:255;
+  R = (R>0)?R:0; G = (G>0)?G:0; B = (B>0)?B:0;
+  
+  const rHex = ((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16));
+  const gHex = ((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16));
+  const bHex = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
+  
+  return "#"+rHex+gHex+bHex;
+}
+
+function adjustBallFontSize(text) {
+  const lines = text.split('\n');
+  const maxLineLength = Math.max(...lines.map(l => l.length));
+  let size = 96; 
+  if (lines.length === 2) size = 56;
+  else if (lines.length === 3) size = 40;
+  else if (lines.length > 3) size = 30;
+  if (maxLineLength > 2 && maxLineLength <= 4) size = Math.min(size, 46);
+  else if (maxLineLength > 4) size = Math.min(size, 28);
+  ballNumber.style.fontSize = size + 'px';
+}
+
+adjustBallFontSize(ballNumber.textContent);
+
+// ライブプレビュー連動イベント群
+sliderTitle.addEventListener('input', () => {
+  valTitle.textContent = sliderTitle.value + 'pt';
+  titleText.style.fontSize = sliderTitle.value + 'pt';
+});
+sliderSub.addEventListener('input', () => {
+  valSub.textContent = sliderSub.value + 'pt';
+  subtitleText.style.fontSize = sliderSub.value + 'pt';
+});
+
+// 新規：エフェクトスライダーのライブ連動
+sliderBlur.addEventListener('input', () => {
+  valBlur.textContent = sliderBlur.value + 'px';
+  document.documentElement.style.setProperty('--bg-blur', sliderBlur.value + 'px');
+});
+sliderShadow.addEventListener('input', () => {
+  valShadow.textContent = sliderShadow.value + 'px';
+  document.documentElement.style.setProperty('--shadow-strength', sliderShadow.value + 'px');
+});
+
+fontTitle.addEventListener('change', () => { titleText.style.fontFamily = fontTitle.value; });
+fontSub.addEventListener('change', () => { subtitleText.style.fontFamily = fontSub.value; });
+fontBall.addEventListener('change', () => { ballNumber.style.fontFamily = fontBall.value; });
+
+pickerTheme.addEventListener('input', () => { updateThemeColors(pickerTheme.value); });
+pickerTitleColor.addEventListener('input', () => { document.documentElement.style.setProperty('--title-color', pickerTitleColor.value); });
+pickerSubColor.addEventListener('input', () => { document.documentElement.style.setProperty('--subtitle-color', pickerSubColor.value); });
+
+function showEdit() {
+  inputTitle.value = titleText.innerText;
+  inputSub.value = subtitleText.innerText;
+  const ts = parseInt(titleText.style.fontSize) || 22;
+  const ss = parseInt(subtitleText.style.fontSize) || 28;
+  sliderTitle.value = ts; valTitle.textContent = ts + 'pt';
+  sliderSub.value = ss; valSub.textContent = ss + 'pt';
+  
+  // スライダー初期位置の同期
+  const blurVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--bg-blur')) || 0;
+  const shadowVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--shadow-strength')) || 30;
+  sliderBlur.value = blurVal; valBlur.textContent = blurVal + 'px';
+  sliderShadow.value = shadowVal; valShadow.textContent = shadowVal + 'px';
+
+  fontTitle.value = titleText.style.fontFamily || fontTitle.options[0].value;
+  fontSub.value = subtitleText.style.fontFamily || fontSub.options[0].value;
+  fontBall.value = ballNumber.style.fontFamily || fontBall.options[0].value;
+  
+  settingsModal.style.display = 'flex';
+  inputTitle.focus();
+}
+
+function applyEdit() {
+  const t = inputTitle.value || ' BINGO';
+  const s = inputSub.value || 'ROULETTE TOOL';
+  titleText.innerText = t;
+  subtitleText.innerText = s;
+  titleText.style.fontSize = sliderTitle.value + 'pt';
+  subtitleText.style.fontSize = sliderSub.value + 'pt';
+  titleText.style.fontFamily = fontTitle.value;
+  subtitleText.style.fontFamily = fontSub.value;
+  ballNumber.style.fontFamily = fontBall.value;
+  
+  updateThemeColors(pickerTheme.value);
+  document.documentElement.style.setProperty('--title-color', pickerTitleColor.value);
+  document.documentElement.style.setProperty('--subtitle-color', pickerSubColor.value);
+  document.documentElement.style.setProperty('--bg-blur', sliderBlur.value + 'px');
+  document.documentElement.style.setProperty('--shadow-strength', sliderShadow.value + 'px');
+
+  hideModal();
+}
+btnApply.addEventListener('click', applyEdit);
+
+function applyBg(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.body.style.backgroundImage = `url(${e.target.result})`;
+    document.body.style.backgroundSize = 'cover';
+  };
+  reader.readAsDataURL(file);
+}
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) { applyBg(e.target.files[0]); }
+  e.target.value = '';
+});
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) { applyBg(f); }
+});
+
+function spinAnimate(finalNum, col, cb) {
+  spinning = true; btnSpin.disabled = true;
+  ballWrap.classList.add('spinning');
+  audioDrum.currentTime = 0;
+  audioDrum.play();
+  
+  let count = 0;
+  const totalTicks = 54;
+
+  const iv = setInterval(() => {
+    count++;
+    const rn = Math.floor(Math.random()*75)+1;
+    ballNumber.textContent = rn;
+    adjustBallFontSize(String(rn));
+    ballNumber.style.color = getColor(rn).bc;
+
+    if (count >= totalTicks) {
+      clearInterval(iv);
+      audioDrum.pause();
+      audioCymbal.currentTime = 0;
+      audioCymbal.play();
+      
+      const finalStr = String(finalNum);
+      ballNumber.textContent = finalStr;
+      adjustBallFontSize(finalStr);
+      ballNumber.style.color = col.bc;
+      ballWrap.classList.remove('spinning');
+      spinning = false; 
+      cb();
+    }
+  }, 55);
+}
+
+function checkWrapAndAlign() {
+  const balls = historyEl.getElementsByClassName('hist-ball');
+  if (balls.length <= 1) {
+    historyEl.style.justifyContent = 'center';
+    return;
+  }
+  const firstBallTop = balls[0].offsetTop;
+  let hasWrapped = false;
+  for (let i = 1; i < balls.length; i++) {
+    if (balls[i].offsetTop !== firstBallTop) {
+      hasWrapped = true;
+      break;
+    }
+  }
+  if (hasWrapped) { historyEl.style.justifyContent = 'flex-start'; } 
+  else { historyEl.style.justifyContent = 'center'; }
+}
+
+function addHistory(num, col) {
+  const b = document.createElement('div');
+  b.className = 'hist-ball';
+  b.textContent = num;
+  b.style.borderColor = col.bc;
+  b.style.color = col.bc; 
+  historyEl.insertBefore(b, historyEl.firstChild);
+  checkWrapAndAlign();
+}
+
+btnSpin.addEventListener('click', () => {
+  if (spinning || pool.length === 0) return;
+  const idx = Math.floor(Math.random()*pool.length);
+  const num = pool.splice(idx,1)[0];
+  const col = getColor(num);
+  spinAnimate(num, col, () => {
+    addHistory(num, col);
+    if (pool.length === 0) {
+      btnSpin.disabled = true;
+      allDone.style.display = 'block';
+    } else {
+      btnSpin.disabled = false;
+    }
+  });
+});
+
+btnReset.addEventListener('click', () => {
+  if (spinning) return;
+  if (!confirm('リセットしますか？')) return;
+  pool = Array.from({length:75},(_,i)=>i+1);
+  historyEl.innerHTML = '';
+  historyEl.style.justifyContent = 'center';
+  ballNumber.textContent = '?';
+  adjustBallFontSize('?');
+  ballNumber.style.color = getComputedStyle(document.documentElement).getPropertyValue('--theme-color-dark').trim() || '#686868';
+  allDone.style.display = 'none';
+  btnSpin.disabled = false;
+});
+
+window.addEventListener('resize', checkWrapAndAlign);
+</script>
+</body>
+</html>
