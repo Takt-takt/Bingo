@@ -236,6 +236,34 @@
     color: #4ade80; padding: 12px 24px; border-radius: 10px;
     font-weight: 600; font-size: 16px; margin-top: 16px; text-align: center;
   }
+
+
+  /* ================================
+     スマホ向け調整
+     - 背景・全体位置・ルーレット本体サイズはPC版と同じ
+     - ルーレット内の数字だけを小さめにする
+     ================================ */
+  @media (max-width: 600px) {
+    #settings-modal {
+      align-items: flex-start;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    #title-edit {
+      width: min(100%, 420px);
+      max-height: none;
+      padding: 18px;
+      border-radius: 14px;
+      gap: 10px;
+    }
+
+    #title-edit textarea {
+      font-size: 16px;
+      min-height: 44px;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -523,7 +551,11 @@ function adjustBallFontSize(text) {
   else if (lines.length > 3) size = 30;
   if (maxLineLength > 2 && maxLineLength <= 4) size = Math.min(size, 46);
   else if (maxLineLength > 4) size = Math.min(size, 28);
-  ballNumber.style.fontSize = size + 'px';
+
+  // スマホではルーレット本体や縦位置は変えず、中の数字だけ少し縮小する
+  const vw = window.innerWidth || document.documentElement.clientWidth || 1024;
+  const mobileScale = vw <= 380 ? 0.68 : (vw <= 600 ? 0.78 : 1);
+  ballNumber.style.fontSize = Math.round(size * mobileScale) + 'px';
 }
 
 const DEFAULT_SETTINGS = {
@@ -971,7 +1003,10 @@ btnReset.addEventListener('click', () => {
   saveState();
 });
 
-window.addEventListener('resize', checkWrapAndAlign);
+window.addEventListener('resize', () => {
+  checkWrapAndAlign();
+  adjustBallFontSize(ballNumber.textContent || '?');
+});
 </script>
 </body>
 </html>
