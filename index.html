@@ -82,7 +82,7 @@
   }
   @keyframes modalPop { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-  #title-edit label { font-size: 12px; color: var(--subtitle-color); letter-spacing: 1px; align-self: flex-start; margin-top: 4px; font-weight: bold; }
+  #title-edit label { font-size: 12px; color: #ffffff; letter-spacing: 1px; align-self: flex-start; margin-top: 4px; font-weight: bold; }
   #title-edit textarea {
     width: 100%; padding: 9px 14px; font-size: 14px;
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
@@ -93,7 +93,7 @@
   
   .ctrl-row { display: flex; align-items: center; gap: 10px; width: 100%; }
   .ctrl-row input[type="range"] { flex: 1; }
-  .ctrl-val { font-size: 13px; color: var(--subtitle-color); min-width: 42px; text-align: right; }
+  .ctrl-val { font-size: 13px; color: #ffffff; min-width: 42px; text-align: right; }
   .ctrl-row select {
     flex: 1; padding: 7px 10px; font-size: 13px;
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
@@ -120,6 +120,13 @@
     transition: background 0.15s, transform 0.1s; width: 100%;
   }
   #btn-apply:hover { filter: brightness(1.1); }
+  #btn-reset-settings {
+    margin-top: 8px; padding: 9px 20px; font-size: 13px; font-weight: 700;
+    border-radius: 99px; cursor: pointer; width: 100%;
+    background: rgba(255,255,255,0.08); color: #fff;
+    border: 1px solid rgba(255,255,255,0.22);
+  }
+  #btn-reset-settings:hover { background: rgba(255,255,255,0.14); }
 
   /* Title area */
   #title-area { text-align: center; margin-bottom: 8px; white-space: pre-line; }
@@ -253,6 +260,12 @@
       <span class="ctrl-val" id="val-shadow">30px</span>
     </div>
 
+    <label>ドラムロール時間</label>
+    <div class="ctrl-row">
+      <input type="range" id="slider-spin-duration" min="1" max="8" value="2.97" step="0.01">
+      <span class="ctrl-val" id="val-spin-duration">2.97秒</span>
+    </div>
+
     <label>タイトル／サブタイトルの文字シャドウ</label>
     <div class="ctrl-row">
       <span style="font-size:11px; color:#aaa; min-width:54px;">影色</span>
@@ -335,6 +348,7 @@
       </select>
     </div>
 
+    <button id="btn-reset-settings" type="button">↺ 設定をデフォルトに戻す</button>
     <button id="btn-apply">✓ 設定を保存</button>
   </div>
 </div>
@@ -384,6 +398,7 @@ const subtitleText= document.getElementById('subtitle-text');
 const inputTitle  = document.getElementById('input-title');
 const inputSub    = document.getElementById('input-subtitle');
 const btnApply    = document.getElementById('btn-apply');
+const btnResetSettings = document.getElementById('btn-reset-settings');
 const sliderTitle = document.getElementById('slider-title');
 const sliderSub   = document.getElementById('slider-sub');
 const valTitle    = document.getElementById('val-title');
@@ -401,6 +416,8 @@ const sliderBlur = document.getElementById('slider-blur');
 const valBlur = document.getElementById('val-blur');
 const sliderShadow = document.getElementById('slider-shadow');
 const valShadow = document.getElementById('val-shadow');
+const sliderSpinDuration = document.getElementById('slider-spin-duration');
+const valSpinDuration = document.getElementById('val-spin-duration');
 const pickerTextShadowColor = document.getElementById('picker-text-shadow-color');
 const sliderTextShadowX = document.getElementById('slider-text-shadow-x');
 const valTextShadowX = document.getElementById('val-text-shadow-x');
@@ -492,7 +509,242 @@ function adjustBallFontSize(text) {
   ballNumber.style.fontSize = size + 'px';
 }
 
+const DEFAULT_SETTINGS = {
+  title: 'Anfini FY26\nKick-off Meeting',
+  subtitle: 'BINGO TOURNAMENT',
+  titleSize: '22',
+  subtitleSize: '28',
+  titleFont: "'Segoe UI','Yu Gothic',sans-serif",
+  subtitleFont: "'Segoe UI','Yu Gothic',sans-serif",
+  ballFont: "'Segoe UI','Yu Gothic',sans-serif",
+  themeColor: '#d1d1d1',
+  titleColor: '#ffffff',
+  subtitleColor: '#000000',
+  blur: '0',
+  shadow: '30',
+  spinDuration: '2.97',
+  textShadowColor: '#000000',
+  textShadowX: '2',
+  textShadowY: '2',
+  textShadowBlur: '4'
+};
+
+function updateSpinDurationDisplay() {
+  valSpinDuration.textContent = Number(sliderSpinDuration.value).toFixed(2) + '秒';
+}
+
+function applySettingsValues(s) {
+  titleText.innerText = s.title;
+  subtitleText.innerText = s.subtitle;
+
+  inputTitle.value = s.title;
+  inputSub.value = s.subtitle;
+
+  sliderTitle.value = s.titleSize;
+  valTitle.textContent = s.titleSize + 'pt';
+  titleText.style.fontSize = s.titleSize + 'pt';
+
+  sliderSub.value = s.subtitleSize;
+  valSub.textContent = s.subtitleSize + 'pt';
+  subtitleText.style.fontSize = s.subtitleSize + 'pt';
+
+  fontTitle.value = s.titleFont;
+  fontSub.value = s.subtitleFont;
+  fontBall.value = s.ballFont;
+  titleText.style.fontFamily = s.titleFont;
+  subtitleText.style.fontFamily = s.subtitleFont;
+  ballNumber.style.fontFamily = s.ballFont;
+
+  pickerTheme.value = s.themeColor;
+  updateThemeColors(s.themeColor);
+
+  pickerTitleColor.value = s.titleColor;
+  pickerSubColor.value = s.subtitleColor;
+  document.documentElement.style.setProperty('--title-color', s.titleColor);
+  document.documentElement.style.setProperty('--subtitle-color', s.subtitleColor);
+
+  sliderBlur.value = s.blur;
+  valBlur.textContent = s.blur + 'px';
+  document.documentElement.style.setProperty('--bg-blur', s.blur + 'px');
+
+  sliderShadow.value = s.shadow;
+  valShadow.textContent = s.shadow + 'px';
+  document.documentElement.style.setProperty('--shadow-strength', s.shadow + 'px');
+
+  sliderSpinDuration.value = s.spinDuration;
+  updateSpinDurationDisplay();
+
+  pickerTextShadowColor.value = s.textShadowColor;
+  sliderTextShadowX.value = s.textShadowX;
+  sliderTextShadowY.value = s.textShadowY;
+  sliderTextShadowBlur.value = s.textShadowBlur;
+  updateTextShadow();
+}
+
+function resetSettingsToDefault() {
+  if (!confirm('設定をデフォルトに戻しますか？\n※抽選済み番号はリセットされません。')) return;
+
+  applySettingsValues(DEFAULT_SETTINGS);
+
+  // アップロード背景を解除し、CSSの background.png に戻す
+  document.body.style.backgroundImage = '';
+  document.body.style.backgroundSize = '';
+
+  // 現在のボールが「?」のときはテーマ色に合わせて戻す
+  if (ballNumber.textContent === '?') {
+    ballNumber.style.color = getComputedStyle(document.documentElement)
+      .getPropertyValue('--theme-color-dark')
+      .trim() || '#686868';
+  }
+
+  saveState();
+}
+
 adjustBallFontSize(ballNumber.textContent);
+updateSpinDurationDisplay();
+
+// === 状態保存（GitHub Pages / ブラウザ内保存） ===
+// ※ localStorage は「同じ端末・同じブラウザ・同じURL」でのみ維持されます。
+const STORAGE_KEY = 'anfini-bingo-roulette-state-v1';
+
+function getInlineBackgroundDataUrl() {
+  const bg = document.body.style.backgroundImage || '';
+  // 背景画像をアップロードした場合のみ data URL として保存する
+  if (bg.startsWith('url("data:') || bg.startsWith("url('data:") || bg.startsWith('url(data:')) {
+    return bg;
+  }
+  return '';
+}
+
+function saveState() {
+  const state = {
+    pool,
+    currentBall: ballNumber.textContent,
+    currentBallColor: ballNumber.style.color,
+    history: Array.from(historyEl.querySelectorAll('.hist-ball')).map(el => Number(el.textContent)),
+    allDoneVisible: allDone.style.display === 'block',
+    settings: {
+      title: titleText.innerText,
+      subtitle: subtitleText.innerText,
+      titleSize: sliderTitle.value,
+      subtitleSize: sliderSub.value,
+      titleFont: fontTitle.value,
+      subtitleFont: fontSub.value,
+      ballFont: fontBall.value,
+      themeColor: pickerTheme.value,
+      titleColor: pickerTitleColor.value,
+      subtitleColor: pickerSubColor.value,
+      blur: sliderBlur.value,
+      shadow: sliderShadow.value,
+      spinDuration: sliderSpinDuration.value,
+      textShadowColor: pickerTextShadowColor.value,
+      textShadowX: sliderTextShadowX.value,
+      textShadowY: sliderTextShadowY.value,
+      textShadowBlur: sliderTextShadowBlur.value
+    },
+    backgroundImage: getInlineBackgroundDataUrl()
+  };
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('状態の保存に失敗しました。背景画像が大きすぎる可能性があります。', e);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+
+    const state = JSON.parse(raw);
+    if (!state || !Array.isArray(state.pool)) return;
+
+    // 抽選状態
+    pool = state.pool;
+    historyEl.innerHTML = '';
+    if (Array.isArray(state.history)) {
+      // addHistory は先頭に追加するため、古い順に復元して表示順を保つ
+      [...state.history].reverse().forEach(num => {
+        if (Number.isFinite(num)) addHistory(num, getColor(num));
+      });
+    }
+
+    const currentBall = state.currentBall || '?';
+    ballNumber.textContent = currentBall;
+    adjustBallFontSize(currentBall);
+    if (state.currentBallColor) {
+      ballNumber.style.color = state.currentBallColor;
+    } else if (currentBall !== '?' && !Number.isNaN(Number(currentBall))) {
+      ballNumber.style.color = getColor(Number(currentBall)).bc;
+    }
+
+    // 設定状態
+    const s = state.settings || {};
+    if (s.title !== undefined) titleText.innerText = s.title;
+    if (s.subtitle !== undefined) subtitleText.innerText = s.subtitle;
+
+    if (s.titleSize !== undefined) {
+      sliderTitle.value = s.titleSize;
+      valTitle.textContent = s.titleSize + 'pt';
+      titleText.style.fontSize = s.titleSize + 'pt';
+    }
+    if (s.subtitleSize !== undefined) {
+      sliderSub.value = s.subtitleSize;
+      valSub.textContent = s.subtitleSize + 'pt';
+      subtitleText.style.fontSize = s.subtitleSize + 'pt';
+    }
+
+    if (s.titleFont !== undefined) { fontTitle.value = s.titleFont; titleText.style.fontFamily = s.titleFont; }
+    if (s.subtitleFont !== undefined) { fontSub.value = s.subtitleFont; subtitleText.style.fontFamily = s.subtitleFont; }
+    if (s.ballFont !== undefined) { fontBall.value = s.ballFont; ballNumber.style.fontFamily = s.ballFont; }
+
+    if (s.themeColor !== undefined) { pickerTheme.value = s.themeColor; updateThemeColors(s.themeColor); }
+    if (s.titleColor !== undefined) {
+      pickerTitleColor.value = s.titleColor;
+      document.documentElement.style.setProperty('--title-color', s.titleColor);
+    }
+    if (s.subtitleColor !== undefined) {
+      pickerSubColor.value = s.subtitleColor;
+      document.documentElement.style.setProperty('--subtitle-color', s.subtitleColor);
+    }
+
+    if (s.blur !== undefined) {
+      sliderBlur.value = s.blur;
+      valBlur.textContent = s.blur + 'px';
+      document.documentElement.style.setProperty('--bg-blur', s.blur + 'px');
+    }
+    if (s.shadow !== undefined) {
+      sliderShadow.value = s.shadow;
+      valShadow.textContent = s.shadow + 'px';
+      document.documentElement.style.setProperty('--shadow-strength', s.shadow + 'px');
+    }
+    if (s.spinDuration !== undefined) {
+      sliderSpinDuration.value = s.spinDuration;
+      updateSpinDurationDisplay();
+    }
+    if (s.textShadowColor !== undefined) pickerTextShadowColor.value = s.textShadowColor;
+    if (s.textShadowX !== undefined) sliderTextShadowX.value = s.textShadowX;
+    if (s.textShadowY !== undefined) sliderTextShadowY.value = s.textShadowY;
+    if (s.textShadowBlur !== undefined) sliderTextShadowBlur.value = s.textShadowBlur;
+    updateTextShadow();
+
+    // 背景画像
+    if (state.backgroundImage) {
+      document.body.style.backgroundImage = state.backgroundImage;
+      document.body.style.backgroundSize = 'cover';
+    }
+
+    allDone.style.display = state.allDoneVisible || pool.length === 0 ? 'block' : 'none';
+    btnSpin.disabled = pool.length === 0;
+    checkWrapAndAlign();
+  } catch (e) {
+    console.warn('保存済み状態の読み込みに失敗しました。', e);
+  }
+}
+
+loadState();
+
 
 // ライブプレビュー連動イベント群
 sliderTitle.addEventListener('input', () => {
@@ -513,6 +765,7 @@ sliderShadow.addEventListener('input', () => {
   valShadow.textContent = sliderShadow.value + 'px';
   document.documentElement.style.setProperty('--shadow-strength', sliderShadow.value + 'px');
 });
+sliderSpinDuration.addEventListener('input', updateSpinDurationDisplay);
 pickerTextShadowColor.addEventListener('input', updateTextShadow);
 sliderTextShadowX.addEventListener('input', updateTextShadow);
 sliderTextShadowY.addEventListener('input', updateTextShadow);
@@ -542,6 +795,7 @@ function showEdit() {
   const textShadowBlurVal = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--text-shadow-blur')) || 4;
   sliderBlur.value = blurVal; valBlur.textContent = blurVal + 'px';
   sliderShadow.value = shadowVal; valShadow.textContent = shadowVal + 'px';
+  updateSpinDurationDisplay();
   sliderTextShadowX.value = textShadowXVal; valTextShadowX.textContent = textShadowXVal + 'px';
   sliderTextShadowY.value = textShadowYVal; valTextShadowY.textContent = textShadowYVal + 'px';
   sliderTextShadowBlur.value = textShadowBlurVal; valTextShadowBlur.textContent = textShadowBlurVal + 'px';
@@ -570,17 +824,21 @@ function applyEdit() {
   document.documentElement.style.setProperty('--subtitle-color', pickerSubColor.value);
   document.documentElement.style.setProperty('--bg-blur', sliderBlur.value + 'px');
   document.documentElement.style.setProperty('--shadow-strength', sliderShadow.value + 'px');
+  updateSpinDurationDisplay();
   updateTextShadow();
 
+  saveState();
   hideModal();
 }
 btnApply.addEventListener('click', applyEdit);
+btnResetSettings.addEventListener('click', resetSettingsToDefault);
 
 function applyBg(file) {
   const reader = new FileReader();
   reader.onload = e => {
     document.body.style.backgroundImage = `url(${e.target.result})`;
     document.body.style.backgroundSize = 'cover';
+    saveState();
   };
   reader.readAsDataURL(file);
 }
@@ -604,7 +862,10 @@ function spinAnimate(finalNum, col, cb) {
   audioDrum.play();
   
   let count = 0;
-  const totalTicks = 54;
+  // 既定値は従来と同じ 54 tick × 55ms = 2.97秒
+  const tickMs = 55;
+  const spinDurationMs = Math.max(500, Number(sliderSpinDuration.value) * 1000 || 2970);
+  const totalTicks = Math.max(1, Math.round(spinDurationMs / tickMs));
 
   const iv = setInterval(() => {
     count++;
@@ -627,7 +888,7 @@ function spinAnimate(finalNum, col, cb) {
       spinning = false; 
       cb();
     }
-  }, 55);
+  }, tickMs);
 }
 
 function checkWrapAndAlign() {
@@ -665,12 +926,14 @@ btnSpin.addEventListener('click', () => {
   const col = getColor(num);
   spinAnimate(num, col, () => {
     addHistory(num, col);
+    saveState();
     if (pool.length === 0) {
       btnSpin.disabled = true;
       allDone.style.display = 'block';
     } else {
       btnSpin.disabled = false;
     }
+    saveState();
   });
 });
 
@@ -685,6 +948,7 @@ btnReset.addEventListener('click', () => {
   ballNumber.style.color = getComputedStyle(document.documentElement).getPropertyValue('--theme-color-dark').trim() || '#686868';
   allDone.style.display = 'none';
   btnSpin.disabled = false;
+  saveState();
 });
 
 window.addEventListener('resize', checkWrapAndAlign);
