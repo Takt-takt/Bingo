@@ -44,11 +44,11 @@
     isolation: isolate;
   }
 
-  /* 背景専用レイヤー。コンテンツが下に伸びても、上側の配置は固定する */
+  /* 背景専用レイヤー。スクロール時に背景が追従しないよう、固定配置ではなくページ内配置にする */
   body::before,
   body::after {
     content: "";
-    position: fixed;
+    position: absolute;
     left: 0; right: 0;
     height: 100vh;
     background-image: var(--page-bg-image);
@@ -56,15 +56,16 @@
     background-position: center;
     background-repeat: no-repeat;
     filter: blur(var(--bg-blur));
-    transform: scale(1.05);
     z-index: -1;
     pointer-events: none;
   }
-  body::before { top: 0; }
+  body::before {
+    top: 0;
+    transform: scale(1.05);
+  }
 
   /* 画面下にスクロール領域が必要になった時用：同じ背景を上下反転して続ける */
   body::after {
-    position: absolute;
     top: 100vh;
     transform: scale(1.05) scaleY(-1);
   }
@@ -216,10 +217,11 @@
   
   .history {
     display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
-    max-height: 140px; overflow-y: auto; padding: 12px; border-radius: 12px;
+    padding: 12px; border-radius: 12px;
     background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05);
-    /* 抽選済み番号が1つ表示された時の高さを、初期状態から確保する */
-    min-height: calc(48px + 24px + 2px); height: 140px; width: 100%; max-width: 82vw;
+    /* 初期表示は1列分だけ確保し、番号が増えたらスクロールボックスにせず下方向へ自然に伸ばす */
+    min-height: calc(48px + 24px + 2px); height: auto; max-height: none; overflow: visible;
+    width: 100%; max-width: 82vw;
   }
   
   .hist-ball {
